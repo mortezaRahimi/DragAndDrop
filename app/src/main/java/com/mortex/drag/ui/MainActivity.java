@@ -158,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
                     layoutParams2.topMargin = Y - _yDelta;
                     layoutParams2.rightMargin = -250;
                     layoutParams2.bottomMargin = -250;
-//
+
                     if (!resized) {
                         resized = true;
                         drawerView.startAnimation(resizeAnimationUp);
