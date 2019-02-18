@@ -161,8 +161,8 @@ public class MainActivity extends AppCompatActivity {
 
         if (squareYposition > drawerYPosition && squareYposition < drawerYPosition + 0.25 * square.getHeight()) {
             moveTop(X, Y, view);
-        }
-        else if (squareYposition > drawerYPosition + 0.25 * square.getHeight()) {
+
+        } else if (squareYposition > drawerYPosition + 0.25 * square.getHeight()) {
             //should drop in drawer
         }
 
@@ -184,9 +184,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void moveTop(final int X, final int Y, final View view) {
 
-        shouldRotateCancel = true;
-        rotate.cancel();
-
         TranslateAnimation anim = new TranslateAnimation(0, 0, 0, -500);
         anim.setFillAfter(true);
         anim.setDuration(250);
@@ -205,8 +202,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onAnimationEnd(Animation animation) {
                 moveDown();
+
             }
         });
+
 
         square.startAnimation(anim);
 
@@ -219,7 +218,6 @@ public class MainActivity extends AppCompatActivity {
         anim.setDuration(250);
 
         anim.setAnimationListener(new TranslateAnimation.AnimationListener() {
-
             @Override
             public void onAnimationStart(Animation animation) {
             }
@@ -237,7 +235,6 @@ public class MainActivity extends AppCompatActivity {
 
         square.startAnimation(anim);
     }
-
 
     private void getTime() {
         final Call<TimeResponse> call = apiService.getTime();
