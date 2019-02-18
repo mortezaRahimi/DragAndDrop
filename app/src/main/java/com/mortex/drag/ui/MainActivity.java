@@ -1,16 +1,12 @@
 package com.mortex.drag.ui;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
-import android.graphics.Rect;
+import android.annotation.SuppressLint;
 import android.os.Handler;
 import android.os.Looper;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.DragEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,7 +14,6 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.view.animation.RotateAnimation;
 import android.view.animation.TranslateAnimation;
-import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -39,220 +34,228 @@ public class MainActivity extends AppCompatActivity {
     @Inject
     ApiService apiService;
 
-    private TextView img;
+    private TextView square;
     private ViewGroup rootlayout;
     private int _xDelta;
     private int _yDelta;
     private RotateAnimation rotate;
     private ResizeAnimation resizeAnimationUp;
-    private ResizeAnimation resizeAnimationDown;
     private View drawerView;
-    private Rect rectf;
     private Boolean resized = false;
     private int[] drawerLocation = new int[2];
     private int[] squareLocation = new int[2];
+    private Boolean shouldRotateCancel = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         DragApplication.get(this).getDragComponent().inject(this);
 
-        rootlayout = (ViewGroup) findViewById(R.id.root_view);
-        img = findViewById(R.id.obj);
-        drawerView = findViewById(R.id.drawer_view);
+        initViews();
 
-        resizeAnimationDown = new ResizeAnimation(drawerView, 100, 50);
-        resizeAnimationUp = new ResizeAnimation(drawerView, 500, 50);
-
-        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(300, 300);
-
-//        layoutParams.setMargins(0,50,0,0);
-//        layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
+        setSquareParams();
 
         drawerView.getLocationInWindow(drawerLocation);
-        img.getLocationInWindow(squareLocation);
+        square.getLocationInWindow(squareLocation);
 
-        img.setLayoutParams(layoutParams);
-        img.setOnTouchListener(new TouchListener());
+        initRotateAnimation();
 
-        rotate = (RotateAnimation) AnimationUtils.loadAnimation(this, R.anim.rotation);
-
-        final Handler mainHnadler = new Handler(Looper.getMainLooper());
-
+        final Handler mainHandler = new Handler(Looper.getMainLooper());
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
                 getTime();
-                mainHnadler.postDelayed(this, 1000);
+                mainHandler.postDelayed(this, 1000);
             }
         };
-
-        mainHnadler.post(runnable);
-
-        rectf = new Rect();
-
-        drawerView.startAnimation(resizeAnimationDown);
+        mainHandler.post(runnable);
 
     }
 
+    private void initViews() {
+        rootlayout = findViewById(R.id.root_view);
+        square = rootlayout.findViewById(R.id.obj);
+        drawerView = rootlayout.findViewById(R.id.drawer_view);
+
+        ResizeAnimation resizeAnimationDown = new ResizeAnimation(drawerView, 100, 50);
+        drawerView.startAnimation(resizeAnimationDown);
+
+        resizeAnimationUp = new ResizeAnimation(drawerView, 500, 50);
+    }
+
+    private void initRotateAnimation() {
+        rotate = (RotateAnimation) AnimationUtils.loadAnimation(this, R.anim.rotation);
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void setSquareParams() {
+        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(300, 300);
+        square.setLayoutParams(layoutParams);
+        square.setOnTouchListener(new TouchListener());
+    }
+
     private final class TouchListener implements View.OnTouchListener {
+        @SuppressLint("ClickableViewAccessibility")
         public boolean onTouch(View view, MotionEvent event) {
-            //get raw x and y of event
             final int X = (int) event.getRawX();
             final int Y = (int) event.getRawY();
-
-            // get action type and use bitwise to mask it (remove unwanted crap)
             switch (event.getAction() & MotionEvent.ACTION_MASK) {
-                //action down is when touch first recognised
+
                 case MotionEvent.ACTION_DOWN:
-                    RelativeLayout.LayoutParams lParams = (RelativeLayout.LayoutParams) view.getLayoutParams();
-
-                    //calculate position of x and y relative to top margin and left margin of layout
-                    _xDelta = X - lParams.leftMargin;
-                    _yDelta = Y - lParams.topMargin;
-//                    Log.d("ACTIONDOWN", "X: " + X);
-//                    int x = location[0];
-//                    int drawerY = drawerLocation[1];
-//                    Log.d("drawerY", "y: " + (drawerY));
-//                    Log.d("SQUARE", "Y: " + Y);
-//                    Log.d("ACTIONDOWN", "leftMgn: " + lParams.leftMargin);
-//                    Log.d("ACTIONDOWN", "topMgn: " + lParams.topMargin);
-//                    Log.d("ACTIONDOWN", "X_Delt: " + _xDelta);
-//                    Log.d("ACTIONDOWN", "Y_Delt: " + _yDelta);
+                    calculateX_Y(view, X, Y);
                     break;
+
                 case MotionEvent.ACTION_UP:
-                    RelativeLayout.LayoutParams layoutParams = (RelativeLayout.LayoutParams) view.getLayoutParams();
-                    layoutParams.leftMargin = X - _xDelta;
-                    layoutParams.topMargin = Y - _yDelta;
-                    layoutParams.rightMargin = -250;
-                    layoutParams.bottomMargin = -250;
-
-                    img.getLocationInWindow(squareLocation);
-                    drawerView.getLocationInWindow(drawerLocation);
-
-                    int squareYposition = squareLocation[1] + 300;
-                    int drawerYPosition = drawerLocation[1];
-
-                    Log.d("drawerY", "y: " + (drawerYPosition));
-                    Log.d("SQUARE", "Y: " + squareYposition);
-
-                    if (squareYposition > drawerYPosition && squareYposition < drawerYPosition + 0.25 * img.getHeight()) {
-                        moveTopAndBottom(squareYposition);
-                    } else if (squareYposition > drawerYPosition + 0.25 * img.getHeight()) {
-                        //should drop
-                    }
-
-                    // write new layout params back to the file
-
-                    view.setLayoutParams(layoutParams);
+                    handleReplacement(view, X, Y);
                     break;
+
                 case MotionEvent.ACTION_POINTER_DOWN:
                     break;
+
                 case MotionEvent.ACTION_POINTER_UP:
                     break;
+
                 case MotionEvent.ACTION_MOVE:
-                    RelativeLayout.LayoutParams layoutParams2 = (RelativeLayout.LayoutParams) view.getLayoutParams();
-                    layoutParams2.leftMargin = X - _xDelta;
-                    layoutParams2.topMargin = Y - _yDelta;
-                    layoutParams2.rightMargin = -250;
-                    layoutParams2.bottomMargin = -250;
-
-                    if (!resized) {
-                        resized = true;
-                        drawerView.startAnimation(resizeAnimationUp);
-                    }
-//
-//                    img.getLocationInWindow(squareLocation);
-//                    drawerView.getLocationInWindow(drawerLocation);
-//                    int squareYposition = squareLocation[1] + 300;
-//                    int drawerYPosition = drawerLocation[1] ;
-//
-//                    Log.d("drawerY", "y: " + (drawerYPosition));
-//                    Log.d("SQUARE", "Y: " + squareYposition);
-//
-//                    if (squareYposition > drawerYPosition && squareYposition < drawerYPosition + 0.25 * img.getHeight()) {
-//                        moveTopAndBottom(squareYposition);
-//                    } else if (squareYposition > drawerYPosition + 0.25 * img.getHeight()) {
-//                        //should drop
-//                    }
-//
-//                    // write new layout params back to the file
-//
-                    view.setLayoutParams(layoutParams2);
-
-
+                    handleSquareMovement(view, X, Y);
                     break;
-
-
             }
-            // invalidate layout at end to cause redraw
-            rootlayout.invalidate();
 
-            // return true here, just because i guess???
+            rootlayout.invalidate();
             return true;
         }
 
     }
 
-    private void moveTopAndBottom(int squareYPosition) {
+    private void handleSquareMovement(View view, int X, int Y) {
+        RelativeLayout.LayoutParams layoutParams2 = (RelativeLayout.LayoutParams) view.getLayoutParams();
+        layoutParams2.leftMargin = X - _xDelta;
+        layoutParams2.topMargin = Y - _yDelta;
+        layoutParams2.rightMargin = -250;
+        layoutParams2.bottomMargin = -250;
 
-        final ObjectAnimator objectanimator = ObjectAnimator.ofFloat(img, "y", 50);
-        objectanimator.setDuration(1000);
+        if (!resized) {
+            resized = true;
+            drawerView.startAnimation(resizeAnimationUp);
+        }
+        view.setLayoutParams(layoutParams2);
+    }
 
-        objectanimator.addListener(new AnimatorListenerAdapter() {
+    private void handleReplacement(View view, int X, int Y) {
+        RelativeLayout.LayoutParams layoutParams = (RelativeLayout.LayoutParams) view.getLayoutParams();
+        _xDelta = X - layoutParams.leftMargin;
+        _yDelta = Y - layoutParams.topMargin;
+        layoutParams.leftMargin = X - _xDelta;
+        layoutParams.topMargin = Y - _yDelta;
+        layoutParams.rightMargin = -250;
+        layoutParams.bottomMargin = -250;
+
+        square.getLocationInWindow(squareLocation);
+        drawerView.getLocationInWindow(drawerLocation);
+
+        int squareYposition = squareLocation[1] + 300;
+        int drawerYPosition = drawerLocation[1];
+
+        Log.d("drawerY", "y: " + (drawerYPosition));
+        Log.d("SQUARE", "Y: " + squareYposition);
+
+        if (squareYposition > drawerYPosition && squareYposition < drawerYPosition + 0.25 * square.getHeight()) {
+            moveTop(X, Y, view);
+        }
+        else if (squareYposition > drawerYPosition + 0.25 * square.getHeight()) {
+            //should drop in drawer
+        }
+
+        view.setLayoutParams(layoutParams);
+    }
+
+    private void calculateX_Y(View view, int X, int Y) {
+        RelativeLayout.LayoutParams lParams = (RelativeLayout.LayoutParams) view.getLayoutParams();
+        _xDelta = X - lParams.leftMargin;
+        _yDelta = Y - lParams.topMargin;
+
+        Log.d("ACTIONDOWN", "X: " + X);
+        Log.d("SQUARE", "Y: " + Y);
+        Log.d("ACTIONDOWN", "leftMgn: " + lParams.leftMargin);
+        Log.d("ACTIONDOWN", "topMgn: " + lParams.topMargin);
+        Log.d("ACTIONDOWN", "X_Delt: " + _xDelta);
+        Log.d("ACTIONDOWN", "Y_Delt: " + _yDelta);
+    }
+
+    private void moveTop(final int X, final int Y, final View view) {
+
+        shouldRotateCancel = true;
+        rotate.cancel();
+
+        TranslateAnimation anim = new TranslateAnimation(0, 0, 0, -500);
+        anim.setFillAfter(true);
+        anim.setDuration(250);
+
+        anim.setAnimationListener(new TranslateAnimation.AnimationListener() {
+
             @Override
-            public void onAnimationEnd(Animator animation) {
-                super.onAnimationEnd(animation);
-                objectanimator.cancel();
+            public void onAnimationStart(Animation animation) {
 
             }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {
+            }
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+                moveDown();
+            }
         });
-        objectanimator.start();
 
+        square.startAnimation(anim);
 
-//        TranslateAnimation anim = new TranslateAnimation(0, 0, squareYPosition - 300, 0);
-//        anim.setDuration(1000);
-//
-//        anim.setAnimationListener(new TranslateAnimation.AnimationListener() {
-//
-//            @Override
-//            public void onAnimationStart(Animation animation) {
-//            }
-//
-//            @Override
-//            public void onAnimationRepeat(Animation animation) {
-//            }
-//
-//            @Override
-//            public void onAnimationEnd(Animation animation) {
-//                RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) img.getLayoutParams();
-//                params.topMargin = 50;
-////                params.leftMargin += amountToMoveRight;
-//                img.setLayoutParams(params);
-//            }
-//        });
-//
-//        img.startAnimation(anim);
     }
+
+    private void moveDown() {
+
+        TranslateAnimation anim = new TranslateAnimation(0, 0, -500, _yDelta);
+        anim.setFillAfter(true);
+        anim.setDuration(250);
+
+        anim.setAnimationListener(new TranslateAnimation.AnimationListener() {
+
+            @Override
+            public void onAnimationStart(Animation animation) {
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {
+            }
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+                shouldRotateCancel = false;
+                square.startAnimation(rotate);
+            }
+        });
+
+        square.startAnimation(anim);
+    }
+
 
     private void getTime() {
         final Call<TimeResponse> call = apiService.getTime();
         call.enqueue(new Callback<TimeResponse>() {
             @Override
-            public void onResponse(Call<TimeResponse> call, Response<TimeResponse> response) {
+            public void onResponse(@NonNull Call<TimeResponse> call, @NonNull Response<TimeResponse> response) {
                 if (response.body() != null) {
 
-                    img.setText(separateTime(response.body().getDatetime()));
-                    img.startAnimation(rotate);
+                    square.setText(separateTime(response.body().getDatetime()));
+                    if (!shouldRotateCancel)
+                        square.startAnimation(rotate);
 
                 }
             }
 
             @Override
-            public void onFailure(Call<TimeResponse> call, Throwable t) {
-
+            public void onFailure(@NonNull Call<TimeResponse> call, @NonNull Throwable t) {
+                Toast.makeText(MainActivity.this, R.string.check_net, Toast.LENGTH_SHORT).show();
             }
         });
     }
