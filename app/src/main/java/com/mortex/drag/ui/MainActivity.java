@@ -176,7 +176,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void moveTop() {
 
-        ObjectAnimator anim = ObjectAnimator.ofFloat(square, "y", -40);
+        ObjectAnimator anim = ObjectAnimator.ofFloat(square, "y", rootlayout.getTop());
         anim.setDuration(250);
         anim.addListener(new Animator.AnimatorListener() {
             @Override
@@ -205,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void moveDown() {
 
-        ObjectAnimator anim = ObjectAnimator.ofFloat(square, "y", 1200);
+        ObjectAnimator anim = ObjectAnimator.ofFloat(square, "y", drawerView.getY() + drawerView.getHeight() / 4);
         anim.setDuration(250);
         anim.addListener(new Animator.AnimatorListener() {
             @Override
