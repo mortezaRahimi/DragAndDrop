@@ -1,5 +1,7 @@
 package com.mortex.drag.ui;
 
+import android.animation.Animator;
+import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
 import android.os.Handler;
 import android.os.Looper;
@@ -10,10 +12,8 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.view.animation.RotateAnimation;
-import android.view.animation.TranslateAnimation;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -38,13 +38,11 @@ public class MainActivity extends AppCompatActivity {
     private ViewGroup rootlayout;
     private int _xDelta;
     private int _yDelta;
-    private RotateAnimation rotate;
     private ResizeAnimation resizeAnimationUp;
     private View drawerView;
     private Boolean resized = false;
     private int[] drawerLocation = new int[2];
     private int[] squareLocation = new int[2];
-    private Boolean shouldRotateCancel = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,8 +56,6 @@ public class MainActivity extends AppCompatActivity {
 
         drawerView.getLocationInWindow(drawerLocation);
         square.getLocationInWindow(squareLocation);
-
-        initRotateAnimation();
 
         final Handler mainHandler = new Handler(Looper.getMainLooper());
         Runnable runnable = new Runnable() {
@@ -82,10 +78,6 @@ public class MainActivity extends AppCompatActivity {
         drawerView.startAnimation(resizeAnimationDown);
 
         resizeAnimationUp = new ResizeAnimation(drawerView, 500, 50);
-    }
-
-    private void initRotateAnimation() {
-        rotate = (RotateAnimation) AnimationUtils.loadAnimation(this, R.anim.rotation);
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -160,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d("SQUARE", "Y: " + squareYposition);
 
         if (squareYposition > drawerYPosition && squareYposition < drawerYPosition + 0.25 * square.getHeight()) {
-            moveTop(X, Y, view);
+            moveTop();
 
         } else if (squareYposition > drawerYPosition + 0.25 * square.getHeight()) {
             //should drop in drawer
@@ -182,58 +174,61 @@ public class MainActivity extends AppCompatActivity {
         Log.d("ACTIONDOWN", "Y_Delt: " + _yDelta);
     }
 
-    private void moveTop(final int X, final int Y, final View view) {
+    private void moveTop() {
 
-        TranslateAnimation anim = new TranslateAnimation(0, 0, 0, -500);
-        anim.setFillAfter(true);
+        ObjectAnimator anim = ObjectAnimator.ofFloat(square, "y", -40);
         anim.setDuration(250);
-
-        anim.setAnimationListener(new TranslateAnimation.AnimationListener() {
-
+        anim.addListener(new Animator.AnimatorListener() {
             @Override
-            public void onAnimationStart(Animation animation) {
+            public void onAnimationStart(Animator animator) {
 
             }
 
             @Override
-            public void onAnimationRepeat(Animation animation) {
-            }
-
-            @Override
-            public void onAnimationEnd(Animation animation) {
+            public void onAnimationEnd(Animator animator) {
                 moveDown();
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animator) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animator) {
 
             }
         });
-
-
-        square.startAnimation(anim);
+        anim.start();
 
     }
 
     private void moveDown() {
 
-        TranslateAnimation anim = new TranslateAnimation(0, 0, -500, _yDelta);
-        anim.setFillAfter(true);
+        ObjectAnimator anim = ObjectAnimator.ofFloat(square, "y", 1200);
         anim.setDuration(250);
-
-        anim.setAnimationListener(new TranslateAnimation.AnimationListener() {
+        anim.addListener(new Animator.AnimatorListener() {
             @Override
-            public void onAnimationStart(Animation animation) {
+            public void onAnimationStart(Animator animator) {
+
             }
 
             @Override
-            public void onAnimationRepeat(Animation animation) {
+            public void onAnimationEnd(Animator animator) {
+//                    rotateSquare(square);
             }
 
             @Override
-            public void onAnimationEnd(Animation animation) {
-                shouldRotateCancel = false;
-                square.startAnimation(rotate);
+            public void onAnimationCancel(Animator animator) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animator) {
+
             }
         });
-
-        square.startAnimation(anim);
+        anim.start();
     }
 
     private void getTime() {
@@ -242,11 +237,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onResponse(@NonNull Call<TimeResponse> call, @NonNull Response<TimeResponse> response) {
                 if (response.body() != null) {
-
                     square.setText(separateTime(response.body().getDatetime()));
-                    if (!shouldRotateCancel)
-                        square.startAnimation(rotate);
-
+                    rotateSquare(square);
                 }
             }
 
@@ -255,6 +247,14 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, R.string.check_net, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void rotateSquare(final TextView tv) {
+        ObjectAnimator imageViewObjectAnimator = ObjectAnimator.ofFloat(tv,
+                "rotation", 0f, 360f);
+        imageViewObjectAnimator.setDuration(500); // miliseconds
+        imageViewObjectAnimator.start();
+
     }
 
 
